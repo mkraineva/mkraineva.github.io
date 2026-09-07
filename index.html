@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dino Runner Game</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      background-color: #f7f7f7;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+      transition: background-color 0.8s ease;
+    }
+
+    body.dark-mode {
+      background-color: #121212;
+      color: #f7f7f7;
+    }
+
+    .game-container {
+      position: relative;
+      width: 100%;
+      max-width: 800px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      background-color: #ffffff;
+      transition: background-color 0.8s ease, box-shadow 0.8s ease;
+    }
+
+    body.dark-mode .canvas-wrapper {
+      background-color: #1e1e1e;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      touch-action: manipulation;
+    }
+
+    .instructions {
+      margin-top: 18px;
+      color: #666;
+      font-size: 14px;
+      text-align: center;
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    body.dark-mode .instructions {
+      color: #aaa;
+    }
+
+    .key {
+      background: #e0e0e0;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: bold;
+      color: #333;
+      box-shadow: 0 2px 0 #bbb;
+    }
+
+    body.dark-mode .key {
+      background: #333;
+      color: #eee;
+      box-shadow: 0 2px 0 #222;
+    }
+
+    .mobile-controls {
+      display: none;
+      width: 100%;
+      margin-top: 15px;
+      gap: 10px;
+    }
+
+    @media (max-width: 768px) {
+      .mobile-controls {
+        display: flex;
+      }
+      .instructions {
+        display: none;
+      }
+    }
+
+    .btn-touch {
+      flex: 1;
+      padding: 16px;
+      font-size: 18px;
+      font-weight: bold;
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      touch-action: manipulation;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .btn-touch:active {
+      transform: translateY(2px);
+    }
+
+    .btn-duck {
+      background-color: #4b5563;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="game-container">
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="800" height="250"></canvas>
+    </div>
+
+    <div class="instructions">
+      <div><span class="key">Пробел</span> / <span class="key">▲</span> Прыжок</div>
+      <div><span class="key">▼</span> Присесть</div>
+      <div><span class="key">Клик</span> Старт / Прыжок</div>
+    </div>
+
+    <div class="mobile-controls">
+      <button class="btn-touch btn-duck" id="btnDuck">ПРИСЕСТЬ</button>
+      <button class="btn-touch" id="btnJump">ПРЫЖОК</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Синтезатор звуковых эффектов (Web Audio API)
+    class SoundEffects {
+      constructor() {
+        this.ctx = null;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) {
+            this.ctx = new AudioContext();
+          }
+        }
+      }
+
+      playJump() {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.12);
+
+        gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.12);
+      }
+
+      playScore() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(587.33, now);
+        osc.frequency.setValueAtTime(880, now + 0.08);
+
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+        osc.start(now);
+        osc.stop(now + 0.25);
+      }
+
+      playGameOver() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(200, now);
+        osc.frequency.linearRampToValueAtTime(50, now + 0.4);
+
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+
+        osc.start(now);
+        osc.stop(now + 0.4);
+      }
+    }
+
+    const sfx = new SoundEffects();
+
+    let gameSpeed = 6;
+    const initialSpeed = 6;
+    const maxSpeed = 13;
+    let score = 0;
+    let highScore = 0;
+    let frameCount = 0;
+    let gameOver = false;
+    let gameStarted = false;
+    let isDarkMode = false;
+
+    const groundY = 200;
+
+    // Объект Динозаврика
+    const dino = {
+      x: 50,
+      y: groundY - 43,
+      width: 40,
+      height: 43,
+      velocityY: 0,
+      gravity: 0.65,
+      jumpForce: -11.5,
+      isGrounded: true,
+      isDucking: false,
+      legFrame: 0,
+      animTimer: 0,
+
+      jump() {
+        if (this.isGrounded && !this.isDucking) {
+          this.velocityY = this.jumpForce;
+          this.isGrounded = false;
+          sfx.playJump();
+        }
+      },
+
+      duck(ducking) {
+        if (this.isGrounded) {
+          this.isDucking = ducking;
+        }
+      },
+
+      update() {
+        this.velocityY += this.gravity;
+        this.y += this.velocityY;
+
+        const currentHeight = this.isDucking ? 25 : 43;
+        if (this.y + currentHeight >= groundY) {
+          this.y = groundY - currentHeight;
+          this.velocityY = 0;
+          this.isGrounded = true;
+        }
+
+        this.animTimer++;
+        if (this.animTimer % 6 === 0) {
+          this.legFrame = (this.legFrame + 1) % 2;
+        }
+      },
+
+      draw() {
+        const color = isDarkMode ? '#e5e7eb' : '#374151';
+        ctx.fillStyle = color;
+
+        if (this.isDucking) {
+          const dw = 52;
+          const dh = 25;
+          ctx.fillRect(this.x, this.y + 5, dw - 12, dh - 5);
+          ctx.fillRect(this.x + 25, this.y, 25, 15);
+          ctx.fillStyle = isDarkMode ? '#1e1e1e' : '#ffffff';
+          ctx.fillRect(this.x + 42, this.y + 3, 3, 3);
+          ctx.fillStyle = color;
+
+          if (this.isGrounded) {
+            if (this.legFrame === 0) {
+              ctx.fillRect(this.x + 10, this.y + dh - 2, 6, 6);
+              ctx.fillRect(this.x + 28, this.y + dh - 2, 6, 2);
+            } else {
+              ctx.fillRect(this.x + 10, this.y + dh - 2, 6, 2);
+              ctx.fillRect(this.x + 28, this.y + dh - 2, 6, 6);
+            }
+          }
+        } else {
+          ctx.fillRect(this.x + 18, this.y, 22, 16);
+          ctx.fillRect(this.x + 30, this.y + 8, 10, 6);
+          
+          ctx.fillStyle = isDarkMode ? '#1e1e1e' : '#ffffff';
+          ctx.fillRect(this.x + 24, this.y + 4, 4, 4);
+          ctx.fillStyle = color;
+
+          ctx.fillRect(this.x + 6, this.y + 14, 26, 20);
+          ctx.fillRect(this.x + 28, this.y + 18, 5, 4);
+
+          ctx.fillRect(this.x, this.y + 16, 8, 8);
+          ctx.fillRect(this.x + 3, this.y + 22, 6, 6);
+
+          if (!this.isGrounded) {
+            ctx.fillRect(this.x + 10, this.y + 34, 6, 8);
+            ctx.fillRect(this.x + 22, this.y + 34, 6, 5);
+          } else {
+            if (this.legFrame === 0) {
+              ctx.fillRect(this.x + 10, this.y + 34, 6, 9);
+              ctx.fillRect(this.x + 22, this.y + 34, 6, 4);
+            } else {
+              ctx.fillRect(this.x + 10, this.y + 34, 6, 4);
+              ctx.fillRect(this.x + 22, this.y + 34, 6, 9);
+            }
+          }
+        }
+      },
+
+      getBounds() {
+        const h = this.isDucking ? 25 : 43;
+        const w = this.isDucking ? 50 : 36;
+        return {
+          x: this.x + 3,
+          y: this.y + 3,
+          width: w - 6,
+          height: h - 6
+        };
+      }
+    };
+
+    let obstacles = [];
+
+    class Cactus {
+      constructor() {
+        this.x = canvas.width + 20;
+        this.type = Math.floor(Math.random() * 3);
+        this.width = this.type === 2 ? 48 : (this.type === 1 ? 24 : 18);
+        this.height = this.type === 1 ? 46 : 36;
+        this.y = groundY - this.height;
+        this.markedForDeletion = false;
+      }
+
+      update() {
+        this.x -= gameSpeed;
+        if (this.x + this.width < 0) {
+          this.markedForDeletion = true;
+        }
+      }
+
+      draw() {
+        ctx.fillStyle = isDarkMode ? '#10b981' : '#059669';
+
+        if (this.type === 0) {
+          ctx.fillRect(this.x + 5, this.y, 8, this.height);
+          ctx.fillRect(this.x, this.y + 10, 18, 5);
+          ctx.fillRect(this.x, this.y + 6, 5, 8);
+          ctx.fillRect(this.x + 13, this.y + 8, 5, 10);
+        } else if (this.type === 1) {
+          ctx.fillRect(this.x + 8, this.y, 10, this.height);
+          ctx.fillRect(this.x, this.y + 12, 26, 6);
+          ctx.fillRect(this.x, this.y + 6, 6, 12);
+          ctx.fillRect(this.x + 20, this.y + 8, 6, 14);
+        } else {
+          for (let i = 0; i < 3; i++) {
+            const ox = this.x + (i * 16);
+            ctx.fillRect(ox + 4, this.y + 6, 6, 30);
+            ctx.fillRect(ox, this.y + 14, 14, 4);
+          }
+        }
+      }
+
+      getBounds() {
+        return {
+          x: this.x + 2,
+          y: this.y + 2,
+          width: this.width - 4,
+          height: this.height - 2
+        };
+      }
+    }
+
+    class Pterodactyl {
+      constructor() {
+        this.x = canvas.width + 20;
+        this.width = 42;
+        this.height = 28;
+        const heights = [groundY - 25, groundY - 45, groundY - 68];
+        this.y = heights[Math.floor(Math.random() * heights.length)];
+        this.wingFrame = 0;
+        this.animTimer = 0;
+        this.markedForDeletion = false;
+      }
+
+      update() {
+        this.x -= (gameSpeed + 0.8);
+        this.animTimer++;
+        if (this.animTimer % 12 === 0) {
+          this.wingFrame = (this.wingFrame + 1) % 2;
+        }
+        if (this.x + this.width < 0) {
+          this.markedForDeletion = true;
+        }
+      }
+
+      draw() {
+        ctx.fillStyle = isDarkMode ? '#9ca3af' : '#4b5563';
+        ctx.fillRect(this.x + 12, this.y + 12, 20, 8);
+        ctx.fillRect(this.x + 28, this.y + 8, 12, 6);
+
+        if (this.wingFrame === 0) {
+          ctx.fillRect(this.x + 14, this.y, 8, 14);
+          ctx.fillRect(this.x + 18, this.y - 4, 4, 6);
+        } else {
+          ctx.fillRect(this.x + 14, this.y + 16, 8, 12);
+          ctx.fillRect(this.x + 18, this.y + 24, 4, 6);
+        }
+      }
+
+      getBounds() {
+        return {
+          x: this.x + 4,
+          y: this.y + 4,
+          width: this.width - 8,
+          height: this.height - 8
+        };
+      }
+    }
+
+    let clouds = [];
+    class Cloud {
+      constructor() {
+        this.x = canvas.width + Math.random() * 100;
+        this.y = 30 + Math.random() * 70;
+        this.width = 46 + Math.random() * 20;
+        this.speed = 0.5 + Math.random() * 0.8;
+        this.markedForDeletion = false;
+      }
+
+      update() {
+        this.x -= this.speed;
+        if (this.x + this.width < 0) {
+          this.markedForDeletion = true;
+        }
+      }
+
+      draw() {
+        ctx.fillStyle = isDarkMode ? '#374151' : '#d1d5db';
+        ctx.fillRect(this.x, this.y, this.width, 10);
+        ctx.fillRect(this.x + 10, this.y - 6, this.width - 20, 6);
+        ctx.fillRect(this.x + 15, this.y + 10, this.width - 25, 4);
+      }
+    }
+
+    let obstacleTimer = 0;
+    let nextObstacleInterval = 100;
+
+    function handleObstacles() {
+      obstacleTimer++;
+      if (obstacleTimer >= nextObstacleInterval) {
+        if (score > 150 && Math.random() < 0.35) {
+          obstacles.push(new Pterodactyl());
+        } else {
+          obstacles.push(new Cactus());
+        }
+        obstacleTimer = 0;
+        nextObstacleInterval = Math.floor(Math.random() * 50) + Math.max(45, 110 - gameSpeed * 5);
+      }
+
+      obstacles.forEach(obs => {
+        obs.update();
+        obs.draw();
+      });
+
+      obstacles = obstacles.filter(obs => !obs.markedForDeletion);
+    }
+
+    function handleClouds() {
+      if (frameCount % 140 === 0) {
+        clouds.push(new Cloud());
+      }
+      clouds.forEach(cloud => {
+        cloud.update();
+        cloud.draw();
+      });
+      clouds = clouds.filter(c => !c.markedForDeletion);
+    }
+
+    let groundOffset = 0;
+    function drawGround() {
+      groundOffset = (groundOffset + gameSpeed) % 20;
+      ctx.fillStyle = isDarkMode ? '#4b5563' : '#9ca3af';
+      ctx.fillRect(0, groundY, canvas.width, 2);
+
+      for (let i = -groundOffset; i < canvas.width; i += 25) {
+        if ((i * 7) % 3 === 0) {
+          ctx.fillRect(i, groundY + 6, 6, 2);
+        } else if ((i * 3) % 5 === 0) {
+          ctx.fillRect(i, groundY + 14, 3, 2);
+        }
+      }
+    }
+
+    function checkCollision(rect1, rect2) {
+      return (
+        rect1.x < rect2.x + rect2.width &&
+        rect1.x + rect1.width > rect2.x &&
+        rect1.y < rect2.y + rect2.height &&
+        rect1.y + rect1.height > rect2.y
+      );
+    }
+
+    function drawUI() {
+      ctx.fillStyle = isDarkMode ? '#f3f4f6' : '#374151';
+      ctx.font = 'bold 16px "Courier New", Courier, monospace';
+      
+      const padScore = (s) => String(Math.floor(s)).padStart(5, '0');
+      const scoreStr = `HI ${padScore(highScore)}  ${padScore(score)}`;
+      ctx.fillText(scoreStr, canvas.width - 210, 30);
+
+      if (!gameStarted) {
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 20px system-ui, sans-serif';
+        ctx.fillText('НАЖМИТЕ ПРОБЕЛ ИЛИ КЛИКНИТЕ', canvas.width / 2, 120);
+        ctx.textAlign = 'left';
+      }
+
+      if (gameOver) {
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 26px system-ui, sans-serif';
+        ctx.fillStyle = isDarkMode ? '#f87171' : '#dc2626';
+        ctx.fillText('Г А М Е  О В Е Р', canvas.width / 2, 100);
+
+        ctx.font = '16px system-ui, sans-serif';
+        ctx.fillStyle = isDarkMode ? '#d1d5db' : '#4b5563';
+        ctx.fillText('Нажмите Пробел, чтобы сыграть снова', canvas.width / 2, 135);
+        ctx.textAlign = 'left';
+      }
+    }
+
+    function resetGame() {
+      score = 0;
+      gameSpeed = initialSpeed;
+      obstacles = [];
+      clouds = [];
+      gameOver = false;
+      gameStarted = true;
+      obstacleTimer = 0;
+      dino.y = groundY - dino.height;
+      dino.velocityY = 0;
+      dino.isDucking = false;
+    }
+
+    function checkDayNightCycle() {
+      const cycle = Math.floor(score / 400);
+      const shouldBeDark = cycle % 2 === 1;
+      if (shouldBeDark !== isDarkMode) {
+        isDarkMode = shouldBeDark;
+        document.body.classList.toggle('dark-mode', isDarkMode);
+      }
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      handleClouds();
+      drawGround();
+
+      if (gameStarted && !gameOver) {
+        frameCount++;
+        score += 0.15;
+
+        if (Math.floor(score) > 0 && Math.floor(score) % 100 === 0 && Math.floor(score - 0.15) % 100 !== 0) {
+          sfx.playScore();
+        }
+
+        if (gameSpeed < maxSpeed) {
+          gameSpeed += 0.0015;
+        }
+
+        checkDayNightCycle();
+
+        dino.update();
+        handleObstacles();
+
+        const dinoBounds = dino.getBounds();
+        for (let obs of obstacles) {
+          if (checkCollision(dinoBounds, obs.getBounds())) {
+            gameOver = true;
+            sfx.playGameOver();
+            if (score > highScore) {
+              highScore = Math.floor(score);
+            }
+            break;
+          }
+        }
+      }
+
+      dino.draw();
+      drawUI();
+
+      requestAnimationFrame(animate);
+    }
+
+    function handleActionStart() {
+      sfx.init();
+      if (!gameStarted || gameOver) {
+        resetGame();
+      } else {
+        dino.jump();
+      }
+    }
+
+    function handleDuckStart() {
+      sfx.init();
+      if (gameStarted && !gameOver) {
+        dino.duck(true);
+      }
+    }
+
+    function handleDuckEnd() {
+      if (gameStarted && !gameOver) {
+        dino.duck(false);
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' || e.code === 'ArrowUp') {
+        e.preventDefault();
+        handleActionStart();
+      } else if (e.code === 'ArrowDown') {
+        e.preventDefault();
+        handleDuckStart();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'ArrowDown') {
+        handleDuckEnd();
+      }
+    });
+
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      handleActionStart();
+    }, { passive: false });
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.target === canvas) {
+        handleActionStart();
+      }
+    });
+
+    const btnJump = document.getElementById('btnJump');
+    const btnDuck = document.getElementById('btnDuck');
+
+    btnJump.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      handleActionStart();
+    }, { passive: false });
+
+    btnDuck.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      handleDuckStart();
+    }, { passive: false });
+
+    btnDuck.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      handleDuckEnd();
+    }, { passive: false });
+
+    window.onload = () => {
+      animate();
+    };
+  </script>
+</body>
+</html>
