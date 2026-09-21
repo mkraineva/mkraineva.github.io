@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FocusDeck — Personal Productivity Dashboard</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#06b6d4',
+              600: '#0891b2',
+              700: '#0e7490',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+    .timer-ring-circle {
+      transition: stroke-dashoffset 0.5s ease-in-out;
+    }
+    .toast-slide {
+      animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes slideIn {
+      from { transform: translateY(100%) scale(0.9); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(156, 163, 175, 0.3);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(156, 163, 175, 0.5);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 min-h-screen flex flex-col selection:bg-cyan-500 selection:text-white">
+
+  <header class="border-b border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20">
+          <i data-lucide="zap" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-700 dark:from-white dark:via-cyan-200 dark:to-cyan-400 bg-clip-text text-transparent">FocusDeck</h1>
+          <p class="text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:block">Personal Productivity Hub</p>
+        </div>
+      </div>
+
+      <!-- Clock & Date Display -->
+      <div class="flex items-center gap-6">
+        <div class="text-right hidden md:block">
+          <div id="live-time" class="text-base font-bold tracking-wider font-mono text-slate-800 dark:text-slate-200">00:00:00</div>
+          <div id="live-date" class="text-xs text-slate-500 dark:text-slate-400 font-medium">Loading date...</div>
+        </div>
+
+        <div class="h-8 w-px bg-slate-200 dark:bg-slate-800 hidden md:block"></div>
+
+        <!-- Theme Toggle -->
+        <button id="theme-toggle" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-500" aria-label="Toggle theme">
+          <i id="theme-icon-sun" data-lucide="sun" class="w-5 h-5 hidden"></i>
+          <i id="theme-icon-moon" data-lucide="moon" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+    <!-- Greeting Section -->
+    <div class="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div>
+        <h2 id="greeting-text" class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Good day!</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Here is your daily workflow overview. Stay focused and keep building.</p>
+      </div>
+      <div class="flex items-center gap-2 bg-white dark:bg-slate-900 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm self-start sm:self-auto">
+        <span class="relative flex h-2.5 w-2.5">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+        </span>
+        <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">Local Storage Sync Active</span>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      
+      <section class="lg:col-span-5 flex flex-col gap-6">
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800/80 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col items-center relative overflow-hidden">
+          <!-- Background Gradient Accent -->
+          <div class="absolute -top-24 -right-24 w-48 h-48 bg-cyan-500/10 dark:bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div class="absolute -bottom-24 -left-24 w-48 h-48 bg-indigo-500/10 dark:bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+          <div class="w-full flex items-center justify-between mb-6">
+            <div class="flex items-center gap-2">
+              <i data-lucide="timer" class="w-5 h-5 text-cyan-500"></i>
+              <h3 class="font-bold text-slate-900 dark:text-white text-lg">Focus Timer</h3>
+            </div>
+            <span id="session-count-badge" class="text-xs font-semibold px-3 py-1 rounded-full bg-cyan-50 text-cyan-600 dark:bg-cyan-950/60 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-800">
+              0 Sessions Completed
+            </span>
+          </div>
+
+          <!-- Mode Switches -->
+          <div class="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl w-full mb-8 text-xs font-semibold">
+            <button id="mode-work" onclick="setTimerMode('work')" class="flex-1 py-2 rounded-xl transition-all duration-200 bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm">Focus (25m)</button>
+            <button id="mode-short" onclick="setTimerMode('short')" class="flex-1 py-2 rounded-xl transition-all duration-200 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">Short Break (5m)</button>
+            <button id="mode-long" onclick="setTimerMode('long')" class="flex-1 py-2 rounded-xl transition-all duration-200 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">Long Break (15m)</button>
+          </div>
+
+          <!-- Circular SVG Progress Timer -->
+          <div class="relative w-64 h-64 flex items-center justify-center my-2">
+            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="42" stroke="currentColor" stroke-width="6" class="text-slate-100 dark:text-slate-800" fill="transparent" />
+              <circle id="timer-progress" cx="50" cy="50" r="42" stroke="currentColor" stroke-width="6" stroke-linecap="round" class="text-cyan-500 timer-ring-circle" fill="transparent" stroke-dasharray="263.89" stroke-dashoffset="0" />
+            </svg>
+            <div class="absolute flex flex-col items-center justify-center text-center">
+              <span id="timer-display" class="text-5xl font-black tracking-tight font-mono text-slate-900 dark:text-white">25:00</span>
+              <span id="timer-label" class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mt-2">Deep Focus</span>
+            </div>
+          </div>
+
+          <!-- Controls -->
+          <div class="flex items-center gap-4 mt-8 w-full max-w-xs">
+            <button id="btn-timer-start" onclick="toggleTimer()" class="flex-1 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-600 hover:to-indigo-700 text-white font-bold text-sm shadow-lg shadow-cyan-500/25 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2">
+              <i id="btn-timer-icon" data-lucide="play" class="w-4 h-4 fill-current"></i>
+              <span id="btn-timer-text">Start Focus</span>
+            </button>
+            <button onclick="resetTimer()" class="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all duration-200 focus:outline-none" title="Reset Timer">
+              <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800/80 shadow-sm flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            <div class="p-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-500 dark:text-indigo-400">
+              <i data-lucide="award" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Focus Time Today</p>
+              <h4 id="total-focus-hours" class="text-xl font-bold text-slate-900 dark:text-white mt-0.5">0 mins</h4>
+            </div>
+          </div>
+          <button onclick="resetStats()" class="text-xs text-slate-400 hover:text-rose-500 transition-colors">Reset Stats</button>
+        </div>
+      </section>
+
+      <section class="lg:col-span-7 flex flex-col gap-8">
+        
+        <!-- Task & Habit Checklist Card -->
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800/80 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <div class="flex items-center gap-2">
+                <i data-lucide="check-square" class="w-5 h-5 text-indigo-500"></i>
+                <h3 class="font-bold text-slate-900 dark:text-white text-lg">Tasks & Daily Habits</h3>
+              </div>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Organize your priorities and track your daily streak.</p>
+            </div>
+            
+            <!-- Progress Counter -->
+            <div class="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/60 px-4 py-2 rounded-2xl border border-slate-100 dark:border-slate-800">
+              <div class="text-right">
+                <div id="task-percentage" class="text-sm font-extrabold text-indigo-600 dark:text-indigo-400">0%</div>
+                <div id="task-counter" class="text-[10px] font-semibold text-slate-400 uppercase">0/0 Completed</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Animated Completion Bar -->
+          <div class="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden mb-6">
+            <div id="task-progress-bar" class="h-full bg-gradient-to-r from-cyan-500 to-indigo-600 rounded-full transition-all duration-500 ease-out" style="width: 0%;"></div>
+          </div>
+
+          <!-- New Task Input Form -->
+          <form id="add-task-form" onsubmit="handleAddTask(event)" class="flex items-center gap-2 mb-6">
+            <div class="relative flex-1">
+              <input type="text" id="task-input" placeholder="Add a new task or habit..." required class="w-full pl-4 pr-24 py-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white placeholder-slate-400">
+              <select id="task-priority" class="absolute right-2 top-2 bottom-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-200 text-xs font-semibold rounded-xl px-2 focus:outline-none">
+                <option value="low">Normal</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <button type="submit" class="p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl transition-all duration-200 shadow-md shadow-indigo-500/20 active:scale-95 flex items-center justify-center">
+              <i data-lucide="plus" class="w-5 h-5"></i>
+            </button>
+          </form>
+
+          <!-- Filter Tabs -->
+          <div class="flex items-center gap-4 mb-4 text-xs font-semibold border-b border-slate-100 dark:border-slate-800 pb-3">
+            <button onclick="setTaskFilter('all')" id="filter-all" class="text-indigo-600 dark:text-indigo-400 font-bold border-b-2 border-indigo-600 dark:border-indigo-400 pb-1 -mb-3">All Tasks</button>
+            <button onclick="setTaskFilter('active')" id="filter-active" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 pb-1 -mb-3">Pending</button>
+            <button onclick="setTaskFilter('completed')" id="filter-completed" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 pb-1 -mb-3">Done</button>
+          </div>
+
+          <!-- Task List Container -->
+          <div id="task-list" class="flex flex-col gap-2.5 max-h-[320px] overflow-y-auto pr-1">
+            <!-- Tasks rendered dynamically -->
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800/80 shadow-xl shadow-slate-200/50 dark:shadow-none flex flex-col">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <i data-lucide="file-text" class="w-5 h-5 text-emerald-500"></i>
+              <h3 class="font-bold text-slate-900 dark:text-white text-lg">Quick Notes Scratchpad</h3>
+            </div>
+            <span id="save-status-badge" class="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
+              <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-500"></i> Auto-saved
+            </span>
+          </div>
+
+          <textarea id="scratchpad-text" oninput="handleNotesInput()" placeholder="Jot down quick thoughts, ideas, links, or code snippets here..." class="w-full h-40 p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 placeholder-slate-400 font-mono resize-none leading-relaxed"></textarea>
+
+          <div class="flex items-center justify-between mt-4 pt-2">
+            <div class="text-xs text-slate-400 font-mono flex items-center gap-3">
+              <span id="char-count">0 characters</span>
+              <span>•</span>
+              <span id="word-count">0 words</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="clearScratchpad()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/50 hover:text-rose-600 text-slate-500 text-xs font-semibold transition-colors">
+                Clear
+              </button>
+              <button onclick="copyScratchpad()" class="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-xs font-semibold hover:bg-emerald-100 transition-colors flex items-center gap-1">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy Text
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </div>
+  </main>
+
+  <footer class="mt-auto border-t border-slate-200 dark:border-slate-800/80 bg-white/50 dark:bg-slate-900/50 py-6">
+    <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <p>Designed for standalone static hosting on <span class="font-semibold text-slate-600 dark:text-slate-300">GitHub Pages</span>.</p>
+      <div class="flex items-center gap-4">
+        <span>No build steps • Zero dependencies</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <script>
+    /* Global Application State */
+    const state = {
+      theme: localStorage.getItem('fd_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
+      timer: {
+        mode: 'work', // work (25), short (5), long (15)
+        duration: 25 * 60,
+        timeRemaining: 25 * 60,
+        isRunning: false,
+        intervalId: null,
+        completedSessions: parseInt(localStorage.getItem('fd_sessions') || '0', 10),
+        totalFocusMinutes: parseInt(localStorage.getItem('fd_total_minutes') || '0', 10)
+      },
+      tasks: JSON.parse(localStorage.getItem('fd_tasks') || '[]'),
+      taskFilter: 'all',
+      notesDebounceTimer: null
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initTheme();
+      initClock();
+      initTimer();
+      renderTasks();
+      initNotes();
+      lucide.createIcons();
+    });
+
+    /* Theme Handler */
+    function initTheme() {
+      const htmlElem = document.documentElement;
+      const sunIcon = document.getElementById('theme-icon-sun');
+      const moonIcon = document.getElementById('theme-icon-moon');
+
+      if (state.theme === 'dark') {
+        htmlElem.classList.add('dark');
+        sunIcon.classList.remove('hidden');
+        moonIcon.classList.add('hidden');
+      } else {
+        htmlElem.classList.remove('dark');
+        sunIcon.classList.add('hidden');
+        moonIcon.classList.remove('hidden');
+      }
+
+      document.getElementById('theme-toggle').addEventListener('click', () => {
+        state.theme = state.theme === 'dark' ? 'light' : 'dark';
+        localStorage.setItem('fd_theme', state.theme);
+        initTheme();
+      });
+    }
+
+    /* Live Digital Clock & Greeting */
+    function initClock() {
+      const timeElem = document.getElementById('live-time');
+      const dateElem = document.getElementById('live-date');
+      const greetingElem = document.getElementById('greeting-text');
+
+      function updateClock() {
+        const now = new Date();
+        timeElem.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        dateElem.textContent = now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+        const hours = now.getHours();
+        let greeting = "Good morning";
+        if (hours >= 12 && hours < 17) greeting = "Good afternoon";
+        else if (hours >= 17) greeting = "Good evening";
+        greetingElem.textContent = `${greeting}, Ready to focus?`;
+      }
+
+      updateClock();
+      setInterval(updateClock, 1000);
+    }
+
+    function initTimer() {
+      updateTimerDisplay();
+      updateSessionCountUI();
+      updateFocusStatsUI();
+    }
+
+    function setTimerMode(mode) {
+      if (state.timer.isRunning) pauseTimer();
+      state.timer.mode = mode;
+
+      const btnWork = document.getElementById('mode-work');
+      const btnShort = document.getElementById('mode-short');
+      const btnLong = document.getElementById('mode-long');
+      const label = document.getElementById('timer-label');
+
+      // Reset tab styling
+      [btnWork, btnShort, btnLong].forEach(btn => {
+        btn.className = "flex-1 py-2 rounded-xl transition-all duration-200 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
+      });
+
+      const activeClass = "flex-1 py-2 rounded-xl transition-all duration-200 bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm font-bold";
+
+      if (mode === 'work') {
+        state.timer.duration = 25 * 60;
+        btnWork.className = activeClass;
+        label.textContent = "Deep Focus";
+      } else if (mode === 'short') {
+        state.timer.duration = 5 * 60;
+        btnShort.className = activeClass;
+        label.textContent = "Short Break";
+      } else if (mode === 'long') {
+        state.timer.duration = 15 * 60;
+        btnLong.className = activeClass;
+        label.textContent = "Long Break";
+      }
+
+      state.timer.timeRemaining = state.timer.duration;
+      updateTimerDisplay();
+    }
+
+    function toggleTimer() {
+      if (state.timer.isRunning) {
+        pauseTimer();
+      } else {
+        startTimer();
+      }
+    }
+
+    function startTimer() {
+      state.timer.isRunning = true;
+      document.getElementById('btn-timer-text').textContent = "Pause";
+      document.getElementById('btn-timer-icon').setAttribute('data-lucide', 'pause');
+      lucide.createIcons();
+
+      state.timer.intervalId = setInterval(() => {
+        if (state.timer.timeRemaining > 0) {
+          state.timer.timeRemaining--;
+          updateTimerDisplay();
+        } else {
+          onTimerComplete();
+        }
+      }, 1000);
+    }
+
+    function pauseTimer() {
+      state.timer.isRunning = false;
+      clearInterval(state.timer.intervalId);
+      document.getElementById('btn-timer-text').textContent = "Resume";
+      document.getElementById('btn-timer-icon').setAttribute('data-lucide', 'play');
+      lucide.createIcons();
+    }
+
+    function resetTimer() {
+      pauseTimer();
+      state.timer.timeRemaining = state.timer.duration;
+      document.getElementById('btn-timer-text').textContent = "Start Focus";
+      updateTimerDisplay();
+    }
+
+    function updateTimerDisplay() {
+      const minutes = Math.floor(state.timer.timeRemaining / 60);
+      const seconds = state.timer.timeRemaining % 60;
+      const formatted = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      
+      document.getElementById('timer-display').textContent = formatted;
+      document.title = state.timer.isRunning ? `(${formatted}) FocusDeck` : 'FocusDeck — Personal Productivity Hub';
+
+      // SVG Circle Progress calculation
+      const circle = document.getElementById('timer-progress');
+      const circumference = 2 * Math.PI * 42; // r=42
+      const progressFraction = state.timer.timeRemaining / state.timer.duration;
+      const offset = circumference * (1 - progressFraction);
+      circle.style.strokeDasharray = `${circumference}`;
+      circle.style.strokeDashoffset = offset;
+    }
+
+    function onTimerComplete() {
+      pauseTimer();
+      playCompletionChime();
+      
+      if (state.timer.mode === 'work') {
+        state.timer.completedSessions++;
+        state.timer.totalFocusMinutes += 25;
+        localStorage.setItem('fd_sessions', state.timer.completedSessions);
+        localStorage.setItem('fd_total_minutes', state.timer.totalFocusMinutes);
+        updateSessionCountUI();
+        updateFocusStatsUI();
+        showToast("Great job! Pomodoro session complete. Time for a break!", "success");
+      } else {
+        showToast("Break finished! Ready to get back into focus?", "info");
+      }
+
+      setTimerMode('work');
+    }
+
+    function updateSessionCountUI() {
+      document.getElementById('session-count-badge').textContent = `${state.timer.completedSessions} Sessions Completed`;
+    }
+
+    function updateFocusStatsUI() {
+      document.getElementById('total-focus-hours').textContent = `${state.timer.totalFocusMinutes} mins`;
+    }
+
+    function resetStats() {
+      state.timer.completedSessions = 0;
+      state.timer.totalFocusMinutes = 0;
+      localStorage.setItem('fd_sessions', '0');
+      localStorage.setItem('fd_total_minutes', '0');
+      updateSessionCountUI();
+      updateFocusStatsUI();
+      showToast("Focus statistics reset.", "info");
+    }
+
+    /* Web Audio API Synthesized Chime (No external mp3 needed) */
+    function playCompletionChime() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const now = audioCtx.currentTime;
+        
+        // Gentle double chime tone
+        [523.25, 659.25, 783.99].forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+          
+          gain.gain.setValueAtTime(0.15, now + idx * 0.12);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.8);
+          
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          
+          osc.start(now + idx * 0.12);
+          osc.stop(now + idx * 0.12 + 0.8);
+        });
+      } catch (e) {
+        console.log("Web Audio not allowed without prior interaction.", e);
+      }
+    }
+
+    function handleAddTask(e) {
+      e.preventDefault();
+      const input = document.getElementById('task-input');
+      const prioritySelect = document.getElementById('task-priority');
+      const text = input.value.trim();
+
+      if (!text) return;
+
+      const newTask = {
+        id: Date.now().toString(),
+        text: text,
+        completed: false,
+        priority: prioritySelect.value,
+        createdAt: new Date().toISOString()
+      };
+
+      state.tasks.unshift(newTask);
+      saveTasks();
+      renderTasks();
+      input.value = '';
+      showToast("New task added!", "success");
+    }
+
+    function toggleTask(id) {
+      state.tasks = state.tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t);
+      saveTasks();
+      renderTasks();
+    }
+
+    function deleteTask(id) {
+      state.tasks = state.tasks.filter(t => t.id !== id);
+      saveTasks();
+      renderTasks();
+      showToast("Task removed.", "info");
+    }
+
+    function setTaskFilter(filter) {
+      state.taskFilter = filter;
+      
+      const btnAll = document.getElementById('filter-all');
+      const btnActive = document.getElementById('filter-active');
+      const btnCompleted = document.getElementById('filter-completed');
+
+      const inactiveClass = "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 pb-1 -mb-3 font-semibold";
+      const activeClass = "text-indigo-600 dark:text-indigo-400 font-bold border-b-2 border-indigo-600 dark:border-indigo-400 pb-1 -mb-3";
+
+      btnAll.className = filter === 'all' ? activeClass : inactiveClass;
+      btnActive.className = filter === 'active' ? activeClass : inactiveClass;
+      btnCompleted.className = filter === 'completed' ? activeClass : inactiveClass;
+
+      renderTasks();
+    }
+
+    function saveTasks() {
+      localStorage.setItem('fd_tasks', JSON.stringify(state.tasks));
+    }
+
+    function renderTasks() {
+      const container = document.getElementById('task-list');
+      container.innerHTML = '';
+
+      let filteredTasks = state.tasks;
+      if (state.taskFilter === 'active') filteredTasks = state.tasks.filter(t => !t.completed);
+      if (state.taskFilter === 'completed') filteredTasks = state.tasks.filter(t => t.completed);
+
+      // Render tasks list items
+      if (filteredTasks.length === 0) {
+        container.innerHTML = `
+          <div class="py-8 text-center text-slate-400 dark:text-slate-500 text-xs font-medium">
+            No tasks found in this view.
+          </div>
+        `;
+      } else {
+        filteredTasks.forEach(task => {
+          const priorityColors = {
+            high: 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 border-rose-200 dark:border-rose-800',
+            medium: 'bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400 border-amber-200 dark:border-amber-800',
+            low: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+          };
+
+          const item = document.createElement('div');
+          item.className = `flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 transition-all duration-200 group hover:border-slate-300 dark:hover:border-slate-700 ${task.completed ? 'opacity-60' : ''}`;
+          
+          item.innerHTML = `
+            <div class="flex items-center gap-3 min-w-0 pr-2">
+              <button onclick="toggleTask('${task.id}')" class="flex-shrink-0 w-5 h-5 rounded-lg border-2 ${task.completed ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-600'} flex items-center justify-center transition-colors">
+                ${task.completed ? '<i data-lucide="check" class="w-3.5 h-3.5"></i>' : ''}
+              </button>
+              <span class="text-sm font-medium ${task.completed ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-200'} truncate">
+                ${escapeHtml(task.text)}
+              </span>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border ${priorityColors[task.priority]}">
+                ${task.priority}
+              </span>
+              <button onclick="deleteTask('${task.id}')" class="p-1 text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          `;
+          container.appendChild(item);
+        });
+      }
+
+      // Update progress metrics
+      const total = state.tasks.length;
+      const completed = state.tasks.filter(t => t.completed).length;
+      const percentage = total === 0 ? 0 : Math.round((completed / total) * 100);
+
+      document.getElementById('task-percentage').textContent = `${percentage}%`;
+      document.getElementById('task-counter').textContent = `${completed}/${total} Completed`;
+      document.getElementById('task-progress-bar').style.width = `${percentage}%`;
+
+      lucide.createIcons();
+    }
+
+    function initNotes() {
+      const savedNotes = localStorage.getItem('fd_scratchpad') || '';
+      const textarea = document.getElementById('scratchpad-text');
+      textarea.value = savedNotes;
+      updateNotesMetrics(savedNotes);
+    }
+
+    function handleNotesInput() {
+      const text = document.getElementById('scratchpad-text').value;
+      updateNotesMetrics(text);
+
+      const statusBadge = document.getElementById('save-status-badge');
+      statusBadge.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin text-amber-500"></i> Saving...`;
+      lucide.createIcons();
+
+      clearTimeout(state.notesDebounceTimer);
+      state.notesDebounceTimer = setTimeout(() => {
+        localStorage.setItem('fd_scratchpad', text);
+        statusBadge.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5 text-emerald-500"></i> Auto-saved`;
+        lucide.createIcons();
+      }, 500);
+    }
+
+    function updateNotesMetrics(text) {
+      const charCount = text.length;
+      const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+      
+      document.getElementById('char-count').textContent = `${charCount} character${charCount === 1 ? '' : 's'}`;
+      document.getElementById('word-count').textContent = `${wordCount} word${wordCount === 1 ? '' : 's'}`;
+    }
+
+    function clearScratchpad() {
+      document.getElementById('scratchpad-text').value = '';
+      handleNotesInput();
+      showToast("Notes cleared.", "info");
+    }
+
+    function copyScratchpad() {
+      const text = document.getElementById('scratchpad-text').value;
+      if (!text) {
+        showToast("Nothing to copy!", "info");
+        return;
+      }
+      
+      // Standalone clipboard fallback
+      const el = document.createElement('textarea');
+      el.value = text;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+
+      showToast("Notes copied to clipboard!", "success");
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      const typeStyles = {
+        success: 'bg-emerald-950 text-emerald-200 border-emerald-800',
+        info: 'bg-slate-900 text-slate-100 border-slate-700'
+      };
+
+      toast.className = `toast-slide p-3.5 px-4 rounded-2xl border text-xs font-semibold shadow-2xl flex items-center gap-2 pointer-events-auto ${typeStyles[type]}`;
+      toast.innerHTML = `
+        <i data-lucide="${type === 'success' ? 'check-circle' : 'info'}" class="w-4 h-4 text-cyan-400"></i>
+        <span>${escapeHtml(message)}</span>
+      `;
+
+      container.appendChild(toast);
+      lucide.createIcons();
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    /* Utility: HTML Escaper */
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, match => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[match]));
+    }
+  </script>
+</body>
+</html>
